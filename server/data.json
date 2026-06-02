@@ -1,0 +1,33 @@
+{
+  "routines": [
+    {
+      "id": 1779148100922,
+      "name": "Morning Routine",
+      "exercises": [
+        {
+          "name": "Push-ups",
+          "workSec": 30,
+          "restSec": 10
+        },
+        {
+          "name": "Squats",
+          "workSec": 30,
+          "restSec": 10
+        },
+        {
+          "name": "Plank",
+          "workSec": 20,
+          "restSec": 0
+        }
+      ]
+    }
+  ],
+  "logs": [
+    {
+      "dateISO": "2026-05-29T20:35:29.439Z",
+      "routineId": 1779148100922,
+      "routineName": "Morning Routine",
+      "exercisesDone": 3
+    }
+  ]
+}
