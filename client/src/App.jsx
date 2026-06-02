@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import LandingPage from './Landingpage';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
+const API_BASE = 'https://workout-scheduler-backend.onrender.com';
 const DEFAULT_EXERCISE = { name: '', workSec: 45, restSec: 15 };
 const EMPTY_TIMER = { status: 'idle', phase: 'idle', index: 0, secondsLeft: 0 };
 const WEEKLY_GOAL = 4;
