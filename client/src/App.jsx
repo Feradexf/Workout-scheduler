@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import LandingPage from './LandingPage';
+import LandingPage from './Landingpage';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000';
 const DEFAULT_EXERCISE = { name: '', workSec: 45, restSec: 15 };
