@@ -1,6 +1,6 @@
 // client/src/LandingPage.jsx
 import { useState, useEffect } from 'react';
-import './LandingPage.css';
+import './Landingpage.css';
 
 export default function LandingPage({ onEnterApp }) {
   const [isVisible, setIsVisible] = useState(false);
