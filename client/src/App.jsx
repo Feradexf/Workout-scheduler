@@ -1,60 +1,16 @@
+import { apiGet, apiPost, apiPut, apiDelete } from './api';
 import { useEffect, useMemo, useState } from 'react';
 import LandingPage from './Landingpage';
 
-const API_BASE = 'https://workout-scheduler-backend.onrender.com';
 const DEFAULT_EXERCISE = { name: '', workSec: 45, restSec: 15 };
 const EMPTY_TIMER = { status: 'idle', phase: 'idle', index: 0, secondsLeft: 0 };
 const WEEKLY_GOAL = 4;
 
-async function apiRequest(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, options);
-  const text = await res.text();
-  let payload = null;
-
-  if (text) {
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      payload = { error: text };
-    }
-  }
-
-  if (!res.ok) {
-    throw new Error(payload?.error || res.statusText || 'Request failed');
-  }
-
-  return payload || {};
-}
-
-function apiGet(path) {
-  return apiRequest(path);
-}
-
-function apiPost(path, body) {
-  return apiRequest(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-}
-
-function apiPut(path, body) {
-  return apiRequest(path, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-}
-
-function apiDelete(path) {
-  return apiRequest(path, { method: 'DELETE' });
-}
-
+// Helper functions (these stay)
 function getValidId(items, preferredId) {
   if (preferredId && items.some((item) => String(item.id) === String(preferredId))) {
     return String(preferredId);
   }
-
   return items[0] ? String(items[0].id) : '';
 }
 
@@ -75,7 +31,6 @@ function formatDuration(totalSeconds) {
   const safeSeconds = normalizeSeconds(totalSeconds);
   const minutes = Math.floor(safeSeconds / 60);
   const seconds = safeSeconds % 60;
-
   if (minutes === 0) return `${seconds}s`;
   if (seconds === 0) return `${minutes}m`;
   return `${minutes}m ${seconds}s`;
@@ -102,13 +57,11 @@ function getTimerProgress(timer, routine) {
     if (timer.phase === 'work') {
       elapsed += normalizeSeconds(current.workSec) - normalizeSeconds(timer.secondsLeft);
     }
-
     if (timer.phase === 'rest') {
       elapsed += normalizeSeconds(current.workSec);
       elapsed += normalizeSeconds(current.restSec) - normalizeSeconds(timer.secondsLeft);
     }
   }
-
   return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
 }
 
@@ -117,9 +70,7 @@ function getLastLog(logs) {
 }
 
 export default function App() {
-  // 🔴 NEW: State to control landing page visibility
   const [showLanding, setShowLanding] = useState(true);
-  
   const [routines, setRoutines] = useState([]);
   const [selectedRoutineId, setSelectedRoutineId] = useState('');
   const [timerRoutineId, setTimerRoutineId] = useState('');
@@ -161,19 +112,16 @@ export default function App() {
 
   useEffect(() => {
     if (timer.status !== 'running') return undefined;
-
     if (timer.secondsLeft <= 0) {
       const timeoutId = window.setTimeout(() => advanceTimer(), 200);
       return () => window.clearTimeout(timeoutId);
     }
-
     const intervalId = window.setInterval(() => {
       setTimer((current) => {
         if (current.status !== 'running') return current;
         return { ...current, secondsLeft: Math.max(current.secondsLeft - 1, 0) };
       });
     }, 1000);
-
     return () => window.clearInterval(intervalId);
   }, [timer.status, timer.secondsLeft]);
 
@@ -185,7 +133,6 @@ export default function App() {
       setRoutines(routinesList);
       setSelectedRoutineId((current) => getValidId(routinesList, options.selectedRoutineId || current));
       setTimerRoutineId((current) => getValidId(routinesList, options.timerRoutineId || current));
-
       const logsData = await apiGet('/api/logs');
       setLogs(logsData.logs || []);
       setWorkoutsThisWeek(logsData.weeklySummary?.workoutsThisWeek || 0);
@@ -193,7 +140,7 @@ export default function App() {
     } catch (error) {
       setMessage({
         type: 'error',
-        text: `Could not reach the backend at ${API_BASE}. Start the server, then refresh.`
+        text: `Could not reach the backend. Make sure the server is running.`
       });
     } finally {
       setLoading(false);
@@ -211,7 +158,6 @@ export default function App() {
       showMessage('error', 'Enter a routine name first.');
       return;
     }
-
     try {
       const data = await apiPost('/api/routines', { name, exercises: [] });
       setNewRoutineName('');
@@ -230,9 +176,7 @@ export default function App() {
       showMessage('error', 'Choose a routine to delete.');
       return;
     }
-
     if (!window.confirm(`Delete ${selectedRoutine.name}?`)) return;
-
     try {
       await apiDelete(`/api/routines/${selectedRoutine.id}`);
       resetTimer();
@@ -249,23 +193,18 @@ export default function App() {
       showMessage('error', 'Choose a routine before adding exercises.');
       return;
     }
-
     const name = newExercise.name.trim();
     const workSec = normalizeSeconds(newExercise.workSec);
     const restSec = normalizeSeconds(newExercise.restSec);
-
     if (!name) {
       showMessage('error', 'Enter an exercise name.');
       return;
     }
-
     if (workSec <= 0) {
       showMessage('error', 'Work time must be at least 1 second.');
       return;
     }
-
     const exercises = [...routineExercises, { name, workSec, restSec }];
-
     try {
       await apiPut(`/api/routines/${selectedRoutine.id}`, {
         name: selectedRoutine.name,
@@ -281,10 +220,8 @@ export default function App() {
 
   async function removeExercise(index) {
     if (!selectedRoutine) return;
-
     const exercise = routineExercises[index];
     const exercises = routineExercises.filter((_, exerciseIndex) => exerciseIndex !== index);
-
     try {
       await apiPut(`/api/routines/${selectedRoutine.id}`, {
         name: selectedRoutine.name,
@@ -301,7 +238,6 @@ export default function App() {
   async function clearLogs() {
     if (!logs.length) return;
     if (!window.confirm('Delete all workout history?')) return;
-
     try {
       await apiDelete('/api/logs');
       await loadAllData();
@@ -316,18 +252,15 @@ export default function App() {
       showMessage('error', 'Choose a routine for the timer.');
       return;
     }
-
     if (timerExercises.length === 0) {
       showMessage('error', 'Add at least one exercise before starting.');
       return;
     }
-
     const invalidExercise = timerExercises.find((exercise) => normalizeSeconds(exercise.workSec) <= 0);
     if (invalidExercise) {
       showMessage('error', `${invalidExercise.name || 'An exercise'} needs a valid work time.`);
       return;
     }
-
     setTimer({
       status: 'running',
       phase: 'work',
@@ -354,9 +287,7 @@ export default function App() {
       resetTimer();
       return;
     }
-
     setTimer((current) => ({ ...current, status: 'saving', secondsLeft: 0 }));
-
     try {
       await apiPost('/api/logs', {
         routineId: Number(routine.id),
@@ -377,13 +308,11 @@ export default function App() {
       resetTimer();
       return;
     }
-
     const currentExercise = timerExercises[timer.index];
     if (!currentExercise) {
       completeWorkout(timerRoutine);
       return;
     }
-
     if (timer.phase === 'work') {
       const restSec = normalizeSeconds(currentExercise.restSec);
       if (restSec > 0) {
@@ -391,7 +320,6 @@ export default function App() {
         return;
       }
     }
-
     const nextIndex = timer.index + 1;
     if (nextIndex < timerExercises.length) {
       setTimer({
@@ -402,7 +330,6 @@ export default function App() {
       });
       return;
     }
-
     completeWorkout(timerRoutine);
   }
 
@@ -416,7 +343,6 @@ export default function App() {
     ? `${timerRoutine.name} - ${timerExercises.length} exercises - ${formatDuration(routineSeconds)}`
     : 'Select a routine to begin';
 
-  // 🔴 NEW: Conditional rendering - Show Landing Page or Dashboard
   if (showLanding) {
     return <LandingPage onEnterApp={() => setShowLanding(false)} />;
   }
@@ -429,15 +355,9 @@ export default function App() {
           <h1>Training Dashboard</h1>
           <p className="topbar-copy">Build routines, run focused timers, and track completed sessions.</p>
         </div>
-
         <div className="topbar-actions">
-          {/* 🔴 NEW: Home button to return to Landing Page */}
-          <button className="ghost-button" type="button" onClick={() => setShowLanding(true)}>
-            🏠 Home
-          </button>
-          <button className="ghost-button" type="button" onClick={() => loadAllData()} disabled={loading}>
-            Refresh
-          </button>
+          <button className="ghost-button" type="button" onClick={() => setShowLanding(true)}>🏠 Home</button>
+          <button className="ghost-button" type="button" onClick={() => loadAllData()} disabled={loading}>Refresh</button>
           <button className="ghost-button" type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
             {theme === 'dark' ? 'Light mode' : 'Dark mode'}
           </button>
@@ -447,9 +367,7 @@ export default function App() {
       {message?.text && (
         <div className={`notice notice-${message.type}`}>
           <span>{message.text}</span>
-          <button type="button" onClick={() => setMessage(null)} aria-label="Dismiss message">
-            x
-          </button>
+          <button type="button" onClick={() => setMessage(null)}>x</button>
         </div>
       )}
 
@@ -487,37 +405,19 @@ export default function App() {
             </div>
             <span className="count-pill">{routines.length}</span>
           </div>
-
           <form className="create-routine" onSubmit={addRoutine}>
-            <input
-              type="text"
-              placeholder="New routine name"
-              value={newRoutineName}
-              onChange={(event) => setNewRoutineName(event.target.value)}
-            />
-            <button className="primary-button" type="submit">
-              <span aria-hidden="true">+</span>
-              Add
-            </button>
+            <input type="text" placeholder="New routine name" value={newRoutineName} onChange={(event) => setNewRoutineName(event.target.value)} />
+            <button className="primary-button" type="submit"><span>+</span> Add</button>
           </form>
-
-          <div className="routine-list" role="listbox" aria-label="Available routines">
+          <div className="routine-list">
             {routines.length === 0 ? (
               <div className="empty-state">Create your first routine to start scheduling workouts.</div>
             ) : (
               routines.map((routine) => {
                 const isSelected = String(routine.id) === String(selectedRoutineId);
                 const exerciseCount = routine.exercises?.length || 0;
-
                 return (
-                  <button
-                    className={`routine-row ${isSelected ? 'is-selected' : ''}`}
-                    key={routine.id}
-                    type="button"
-                    onClick={() => setSelectedRoutineId(String(routine.id))}
-                    role="option"
-                    aria-selected={isSelected}
-                  >
+                  <button className={`routine-row ${isSelected ? 'is-selected' : ''}`} key={routine.id} type="button" onClick={() => setSelectedRoutineId(String(routine.id))}>
                     <span>
                       <strong>{routine.name}</strong>
                       <small>{exerciseCount} exercises - {formatDuration(getRoutineSeconds(routine))}</small>
@@ -536,13 +436,8 @@ export default function App() {
               <p className="section-kicker">Routine builder</p>
               <h2>{selectedRoutine?.name || 'Select a routine'}</h2>
             </div>
-            {selectedRoutine && (
-              <button className="danger-button compact" type="button" onClick={deleteRoutine}>
-                Delete
-              </button>
-            )}
+            {selectedRoutine && <button className="danger-button compact" type="button" onClick={deleteRoutine}>Delete</button>}
           </div>
-
           {selectedRoutine ? (
             <>
               <div className="exercise-table">
@@ -555,51 +450,16 @@ export default function App() {
                       <span className="exercise-name">{exercise.name}</span>
                       <span className="time-chip">Work {formatDuration(exercise.workSec)}</span>
                       <span className="time-chip rest-chip">Rest {formatDuration(exercise.restSec)}</span>
-                      <button
-                        className="icon-button"
-                        type="button"
-                        onClick={() => removeExercise(index)}
-                        aria-label={`Remove ${exercise.name}`}
-                      >
-                        x
-                      </button>
+                      <button className="icon-button" type="button" onClick={() => removeExercise(index)}>x</button>
                     </div>
                   ))
                 )}
               </div>
-
               <form className="exercise-form" onSubmit={addExercise}>
-                <label>
-                  <span>Exercise</span>
-                  <input
-                    type="text"
-                    placeholder="Push-ups"
-                    value={newExercise.name}
-                    onChange={(event) => setNewExercise({ ...newExercise, name: event.target.value })}
-                  />
-                </label>
-                <label>
-                  <span>Work sec</span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={newExercise.workSec}
-                    onChange={(event) => setNewExercise({ ...newExercise, workSec: event.target.value })}
-                  />
-                </label>
-                <label>
-                  <span>Rest sec</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={newExercise.restSec}
-                    onChange={(event) => setNewExercise({ ...newExercise, restSec: event.target.value })}
-                  />
-                </label>
-                <button className="primary-button" type="submit">
-                  <span aria-hidden="true">+</span>
-                  Exercise
-                </button>
+                <label><span>Exercise</span><input type="text" placeholder="Push-ups" value={newExercise.name} onChange={(event) => setNewExercise({ ...newExercise, name: event.target.value })} /></label>
+                <label><span>Work sec</span><input type="number" min="1" value={newExercise.workSec} onChange={(event) => setNewExercise({ ...newExercise, workSec: event.target.value })} /></label>
+                <label><span>Rest sec</span><input type="number" min="0" value={newExercise.restSec} onChange={(event) => setNewExercise({ ...newExercise, restSec: event.target.value })} /></label>
+                <button className="primary-button" type="submit"><span>+</span> Exercise</button>
               </form>
             </>
           ) : (
@@ -609,83 +469,36 @@ export default function App() {
 
         <section className="panel timer-panel">
           <div className="panel-heading">
-            <div>
-              <p className="section-kicker">Live timer</p>
-              <h2>{timerTitle}</h2>
-            </div>
+            <div><p className="section-kicker">Live timer</p><h2>{timerTitle}</h2></div>
             <span className={`status-pill status-${timer.status}`}>{timer.status}</span>
           </div>
-
           <label className="select-label">
             <span>Timer routine</span>
-            <select
-              value={timerRoutineId}
-              onChange={(event) => {
-                setTimerRoutineId(event.target.value);
-                resetTimer();
-              }}
-            >
+            <select value={timerRoutineId} onChange={(event) => { setTimerRoutineId(event.target.value); resetTimer(); }}>
               <option value="">Choose routine</option>
-              {routines.map((routine) => (
-                <option key={routine.id} value={routine.id}>
-                  {routine.name}
-                </option>
-              ))}
+              {routines.map((routine) => (<option key={routine.id} value={routine.id}>{routine.name}</option>))}
             </select>
           </label>
-
           <div className="timer-core">
             <p>{timerSubtitle}</p>
-            <div className="timer-face" aria-live="polite">
-              {formatTime(timer.secondsLeft)}
-            </div>
-            <div className="timer-progress" aria-label={`${timerProgress}% complete`}>
-              <span style={{ width: `${timerProgress}%` }} />
-            </div>
+            <div className="timer-face">{formatTime(timer.secondsLeft)}</div>
+            <div className="timer-progress"><span style={{ width: `${timerProgress}%` }} /></div>
             <p className="phase-copy">
-              {timer.status === 'idle'
-                ? 'Pick a routine and start when ready.'
-                : timer.phase === 'rest'
-                  ? 'Recover, breathe, and prepare for the next set.'
-                  : `Exercise ${timer.index + 1} of ${timerExercises.length}`}
+              {timer.status === 'idle' ? 'Pick a routine and start when ready.' : timer.phase === 'rest' ? 'Recover, breathe, and prepare for the next set.' : `Exercise ${timer.index + 1} of ${timerExercises.length}`}
             </p>
           </div>
-
           <div className="timer-controls">
-            {timer.status === 'idle' && (
-              <button className="start-button" type="button" onClick={startWorkout}>
-                <span aria-hidden="true">&gt;</span>
-                Start
-              </button>
-            )}
-            {timer.status === 'running' && (
-              <button className="secondary-button" type="button" onClick={pauseWorkout}>
-                <span aria-hidden="true">||</span>
-                Pause
-              </button>
-            )}
-            {timer.status === 'paused' && (
-              <button className="start-button" type="button" onClick={resumeWorkout}>
-                <span aria-hidden="true">&gt;</span>
-                Resume
-              </button>
-            )}
-            {timer.status !== 'idle' && timer.status !== 'saving' && (
-              <button className="danger-button" type="button" onClick={resetTimer}>
-                Cancel
-              </button>
-            )}
+            {timer.status === 'idle' && <button className="start-button" type="button" onClick={startWorkout}>Start</button>}
+            {timer.status === 'running' && <button className="secondary-button" type="button" onClick={pauseWorkout}>Pause</button>}
+            {timer.status === 'paused' && <button className="start-button" type="button" onClick={resumeWorkout}>Resume</button>}
+            {timer.status !== 'idle' && timer.status !== 'saving' && <button className="danger-button" type="button" onClick={resetTimer}>Cancel</button>}
           </div>
-
           <div className="queue-list">
             {timerExercises.length === 0 ? (
               <div className="empty-state">The selected routine has no exercises.</div>
             ) : (
               timerExercises.map((exercise, index) => (
-                <div
-                  className={`queue-row ${timer.index === index && timer.status !== 'idle' ? 'is-current' : ''}`}
-                  key={`${exercise.name}-${index}`}
-                >
+                <div className={`queue-row ${timer.index === index && timer.status !== 'idle' ? 'is-current' : ''}`} key={`${exercise.name}-${index}`}>
                   <span>{index + 1}</span>
                   <strong>{exercise.name}</strong>
                   <small>{formatDuration(exercise.workSec)} / {formatDuration(exercise.restSec)}</small>
@@ -697,41 +510,21 @@ export default function App() {
 
         <section className="panel progress-panel">
           <div className="panel-heading">
-            <div>
-              <p className="section-kicker">Progress</p>
-              <h2>Workout history</h2>
-            </div>
-            <button className="ghost-button compact" type="button" onClick={clearLogs} disabled={!logs.length}>
-              Clear
-            </button>
+            <div><p className="section-kicker">Progress</p><h2>Workout history</h2></div>
+            <button className="ghost-button compact" type="button" onClick={clearLogs} disabled={!logs.length}>Clear</button>
           </div>
-
           <div className="goal-block">
-            <div>
-              <span>Weekly goal</span>
-              <strong>{workoutsThisWeek}/{WEEKLY_GOAL}</strong>
-            </div>
-            <div className="goal-bar" aria-label={`${weeklyProgress}% of weekly goal`}>
-              <span style={{ width: `${weeklyProgress}%` }} />
-            </div>
+            <div><span>Weekly goal</span><strong>{workoutsThisWeek}/{WEEKLY_GOAL}</strong></div>
+            <div className="goal-bar"><span style={{ width: `${weeklyProgress}%` }} /></div>
           </div>
-
           <div className="log-list">
             {logs.length === 0 ? (
               <div className="empty-state">Complete a timer session to create the first progress log.</div>
             ) : (
-              [...logs].reverse().map((log,index) => (
+              [...logs].reverse().map((log, index) => (
                 <div className="log-row" key={`${log.dateISO}-${index}`}>
-                  <span className="log-date">
-                    {new Date(log.dateISO).toLocaleDateString(undefined, {
-                      month: 'short',
-                      day: 'numeric'
-                    })}
-                  </span>
-                  <span>
-                    <strong>{log.routineName} </strong>
-                    <small>{new Date(log.dateISO).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
-                  </span>
+                  <span className="log-date">{new Date(log.dateISO).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                  <span><strong>{log.routineName} </strong><small>{new Date(log.dateISO).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></span>
                   <span className="time-chip">{log.exercisesDone} exercises</span>
                 </div>
               ))
