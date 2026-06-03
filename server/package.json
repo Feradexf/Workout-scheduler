@@ -2,7 +2,7 @@
   "name": "workout-fullstack-server",
   "version": "1.0.0",
   "private": true,
-  "main": "src/index.js",
+ "main": "index.js",
   "type": "commonjs",
   "scripts": {
     "start": "node src/index.js",
